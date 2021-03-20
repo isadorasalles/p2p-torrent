@@ -2,7 +2,7 @@ import socket
 import sys
 import struct
 import ipaddress
-import time
+import os
 
 def send_hello(s, qtd_chunks, ids, ip, port):
     msg_hello = struct.pack("H", 1)
@@ -16,6 +16,11 @@ def send_get(s, intersect, addr):
     get += str.encode(','.join(intersect))
     s.sendto(get, addr)
 
+def save_file(fname, chunk):
+    file_ = os.path.join("output/", fname)
+    with open(file_, "wb") as out:
+        out.write(chunk)
+
 def main():
     ip_port = sys.argv[1]
     ip = ip_port.split(":")[0]
@@ -23,9 +28,11 @@ def main():
     ids = sys.argv[2]
     qtd_chunks = len(ids.split(","))
 
+    # cria pasta para armazenar os pedaços do video
+    os.makedirs("output/", exist_ok=True)
+
     # criando socket
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    print(s.getsockname())
 
     # mensagem tipo hello
     send_hello(s, qtd_chunks, ids, ip, port)
@@ -37,37 +44,33 @@ def main():
     save_peers_send = {}
     output = []
 
-    # timeout e retransmissoes
+    # set timeout e retransmissoes
     s.settimeout(5)
     retrans_hello = 2
     retrans_get = 2
-    print(s.getsockname())
+
     while True:
-        print(already_recv)
-        print(already_send)
-        print(save_peers_send)
-        print(not_sent)
         if len(not_sent) == 0 and len(already_recv) == len(already_send):
             break
-        # aguarda mensagens
-        # implementar temporizador para recebimento de todos os chunks
+        # aguarda recebimento de mensagens por um timeout de 5 segundos
+        # caso nada seja recebido, a mensagem de HELLO eh retransmitida se nao tiver rebebido CHUNKS INFO para todos os ids desejados
+        # e a mensagem de GET eh retransmitida se nao tiver recebido o RESPONSE correspondente
         try:
             msg_received, addr = s.recvfrom(1048)
 
         except socket.timeout:
 
             if retrans_hello == 0:
-                print("final: not sent", not_sent)
+                print("Nao foi possivel encontrar os chunks: ", not_sent)
                 for id_ in not_sent:
-                    output.append("0.0.0.0:0 - "+str(id_))
+                    output.append("0.0.0.0:0 - "+str(id_)+"\n")
                 not_sent = []
 
             if retrans_get == 0:
-                # already_recv = map(str, already_recv)
                 already_send_not_recv = list(set(already_send)-(set(already_recv)))
-                print("final: already send not recv", already_send_not_recv)
+                print("A resposta com os seguintes chunks nao foi recebida: ", already_send_not_recv)
                 for id_ in already_send_not_recv:
-                    output.append("0.0.0.0:0 - "+str(id_))
+                    output.append("0.0.0.0:0 - "+str(id_)+"\n")
                 already_recv = already_send
 
             if len(not_sent) > 0 and retrans_hello > 0:
@@ -91,15 +94,17 @@ def main():
             # recebeu mensagem do tipo chunks info
             print("Chunks info recebido do peer", addr)
             chunks_with_peer = msg[2].decode().split(",") 
+
+            # verifica se os ids recebidos tem intersecao com os desejados
             intersect = list(set(chunks_with_peer).intersection(not_sent))
             if not intersect:
                 print("Nao teve nenhuma intersecao com os chunks restantes")
                 continue
+
+            # manda mensagem de get para os ids desejados que o peer possui
             send_get(s, intersect, addr)
-            # depois de um certo tempo se a lista de chunks nao enviados ainda nao estiver vazia pode ser que mensagens tenham
-            # sido perdidas (ou entao alcançou o ttl), dessa forma eh possivel retransmitir a mensagem do tipo hello e começar uma nova busca na rede
-            # salvar intersect e addr num dict, quando receber a resposta tira do dict,
-            # depois de um dado timeout sem receber nenhuma resposta, retransmite tudo que ta no dict
+
+            # atualiza estruturas que armazenam os ids enviados e não enviados
             not_sent = list(set(not_sent)-(set(intersect)))
             already_send.extend(intersect)
             save_peers_send[addr] = intersect
@@ -117,10 +122,12 @@ def main():
             if save_peers_send[addr] == []:
                 del save_peers_send[addr]
         
-            output.append(addr[0]+":"+str(addr[1])+" - "+str(msg[1])) ## falta escrever em um arquivo
+            output.append(addr[0]+":"+str(addr[1])+" - "+str(msg[1])+"\n")
+            save_file("BigBuckBunny_"+str(msg[1])+".m4s", msg[3])
 
-        # falta criar as pastas do cliente e salvar os pedaços dos chunks nelas
-
-    print(output)
+    with open("output_"+s.getsockname()[0]+".log", "w") as out:
+        for lines in output:
+            out.write(lines)
+    
 if __name__ == "__main__":
     main()

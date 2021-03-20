@@ -6,7 +6,7 @@ import os
 import ipaddress
 
 def send_chunks_info(s, ids, addr, chunks_asked):
-    # mandar informacoes dos chunks que o peer possui e o cliente deseka
+    # mandar informacoes dos chunks que o peer possui e o cliente deseja
     chunks_asked = chunks_asked.decode().split(",") 
     ids_send = list(set(chunks_asked).intersection(ids))
     if len(ids_send) > 0:
@@ -100,9 +100,7 @@ def main():
 
             # manda apenas os chunks requisitados pelo cliente
             for i in chunks_asked:
-                # if i == '5':
-                #     continue
-                with open("Chunks/"+chunks[i], "rb") as f:
+                with open("Chunks/"+chunks[i], "rb") as f: ## mudar isso daqui
                     data = f.read()
                 response = struct.pack("H", 5)
                 response += struct.pack("H", int(i))
