@@ -92,7 +92,7 @@ def main():
 
         if msg[0] == 3:
             # recebeu mensagem do tipo chunks info
-            print("Chunks info recebido do peer", addr)
+            print("CHUNKS_INFO recebido do peer", addr)
             chunks_with_peer = msg[2].decode().split(",") 
 
             # verifica se os ids recebidos tem intersecao com os desejados
@@ -111,7 +111,7 @@ def main():
 
         if msg[0] == 5:
             # recebeu mensagem do tipo response
-            print("Response recebida do peer", addr)
+            print("RESPONSE recebido do peer", addr)
 
             # decodifica mensagem response corretamente
             msg = struct.unpack("=HHH"+str(len(msg_received)-6)+"s", msg_received)

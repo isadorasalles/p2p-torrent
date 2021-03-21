@@ -17,7 +17,10 @@ def send_chunks_info(s, ids, addr, chunks_asked):
 
 def send_flooding_msg(s, p, ttl, qtd_chunks, list_ids, neighbors, addr):
     for peer in neighbors:
-        if peer == p:  # verifica se o peer eh igual ao que mandou a mensagem de alagamento
+        peer_ip = peer.split(":")[0]
+        peer_port = peer.split(":")[1]
+
+        if (peer_ip, int(peer_port)) == p:  # verifica se o peer eh igual ao que mandou a mensagem de alagamento
             continue
 
         # transforma ip para 4 bytes
@@ -31,9 +34,6 @@ def send_flooding_msg(s, p, ttl, qtd_chunks, list_ids, neighbors, addr):
         query += struct.pack("H", ttl)
         query += struct.pack("H", qtd_chunks)
         query += list_ids
-
-        peer_ip = peer.split(":")[0]
-        peer_port = peer.split(":")[1]
 
         # manda mensagem para outros peers vizinhos
         s.sendto(query, (peer_ip, int(peer_port)))
@@ -87,7 +87,7 @@ def main():
             port_client = alagamento[2]
 
             # manda mensagem de alagamento para seus vizinhos, se o TTL for maior que 0
-            if len(neighbors) > 0 and alagamento[3] > 0:
+            if len(neighbors) > 0 and alagamento[3] - 1 > 0:
                 send_flooding_msg(s, addr, alagamento[3] - 1, alagamento[4], alagamento[5], neighbors, (str(ip_client), port_client))
             
             # manda chunks info para o cliente
@@ -100,7 +100,7 @@ def main():
 
             # manda apenas os chunks requisitados pelo cliente
             for i in chunks_asked:
-                with open("Chunks/"+chunks[i], "rb") as f: ## mudar isso daqui
+                with open(chunks[i], "rb") as f:
                     data = f.read()
                 response = struct.pack("H", 5)
                 response += struct.pack("H", int(i))
